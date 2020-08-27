@@ -8,7 +8,8 @@ pyinstaller = "*"
 flake8 = "*"
 
 [packages]
-websockets = "*"
+python-socketio = {extras = ["client"], version = "*"}
+requests = "*"
 
 [requires]
 python_version = "3.8"
