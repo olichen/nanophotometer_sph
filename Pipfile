@@ -10,6 +10,7 @@ flake8 = "*"
 [packages]
 python-socketio = {extras = ["client"], version = "*"}
 requests = "*"
+mysql-connector-python = "*"
 
 [requires]
 python_version = "3.8"
