@@ -21,10 +21,10 @@ class NanophotometerNamespace(socketio.ClientNamespace):
         print('disconnected')
 
     def on_message(self, data: dict):
-        print('message received', data)
+        # print('message received', data)
         if 'ready' in data and data['ready'] == 'sample':
             response = requests.get(self.uri + '/rest/session/sample')
-            print(response.text)
+            # print(response.text)
             sql.update_database(response.text)
 
 class MySQLConnection:
@@ -39,9 +39,20 @@ class MySQLConnection:
 
     def update_database(self, data: str) -> bool:
         sample = json.loads(data)
+        print(sample)
         conc = round(sample['c'], 0)
+        conc = min(conc, 1.0)
+        label = sample['label'].split()
         o_num = 960254 # test order
         s_num = 1
+        try:
+            o_num = int(label[0])
+            s_num = int(label[1])
+        except Exception as e:
+            print(e)
+            o_num = 960254 # test order
+            s_num = 1
+
         select_query = ("SELECT ServiceType, DNAType, purification, "
                 "isPurified, isSpecial, SampleSize, "
                 "sampletable.Premixed AS s_pre, ordertable.Premixed AS o_pre "
@@ -116,7 +127,9 @@ class MySQLConnection:
         # Strips non-numeric characters
         # ex: 'PCR - 300 bp' => '15', '1.5 kb' => '15'
         sample_size = ''.join(x for x in ssize if x.isdigit())
-        S = round(base_vol[sample_size] / C, 1)
+        S = round(base_vol[sample_size] / conc, 1)
+        S = min(S, 4.0)
+        S = max(S, 1.0)
         H = 4 - (S // 1)
         return (S, 1, H)
 
