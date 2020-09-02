@@ -40,9 +40,9 @@ class MySQLConnection:
 
     def update_database(self, data: str) -> bool:
         sample = json.loads(data)
-        print(sample)
+        # print(sample)
         conc = round(sample['c'], 0)
-        conc = min(conc, 1.0)
+        conc = max(conc, 1)
         label = sample['label'].split()
         o_num = 960254  # test order
         s_num = 1
@@ -50,9 +50,8 @@ class MySQLConnection:
             o_num = int(label[0])
             s_num = int(label[1])
         except Exception as e:
-            print(e)
-            o_num = 960254  # test order
-            s_num = 1
+            print(f'Unable to find order {label}')
+            return False
 
         s_query = ("SELECT ServiceType, DNAType, purification, "
                    "isPurified, isSpecial, SampleSize, "
@@ -62,6 +61,11 @@ class MySQLConnection:
                    "ON ordertable.OrderNumber = sampletable.OrderNumber "
                    f"WHERE ordertable.OrderNumber = '{o_num}' "
                    f"AND SampleID = '{s_num}'")
+        u_query = ("UPDATE sampletable "
+                   f"SET measuredSampleCntr = '{conc}', "
+                   "S = '%s', P = '%s', H = '%s' "
+                   f"WHERE OrderNumber = '{o_num}' "
+                   "AND SampleID = '{s_num}'")
         try:
             cnx = mysql.connector.connect(user=self.user, password=self.pw,
                                           host=self.host, database=self.db)
@@ -70,17 +74,19 @@ class MySQLConnection:
         else:
             cursor = cnx.cursor(dictionary=True)
             cursor.execute(s_query)
-            for data in cursor:
-                s, p, h = self.calc_sph(conc, data)
-                u_query = ("UPDATE sampletable "
-                           f"SET measuredSampleCntr = '{conc}', "
-                           f"S = '{s}', P = '{p}', H = '{h}' "
-                           f"WHERE OrderNumber = '{o_num}' "
-                           "AND SampleID = '{s_num}'")
-                update_cursor = cnx.cursor()
-                update_cursor.execute(u_query)
-                print(f"Updated order {o_num}, sample {s_num} with "
-                      f"concentration = {conc}, S = {s}, P = {p}, H = {h}.")
+            data = cursor.fetchone()
+            cursor.close()
+            if data is None:
+                print(f'Unable to find order {o_num} with sample {s_num}')
+                return False
+
+            s, p, h = self.calc_sph(conc, data)
+
+            cursor = cnx.cursor()
+            cursor.execute(u_query, (s, p, h))
+            print(f"Updated order {o_num}, sample {s_num} with "
+                  f"concentration = {conc}, S = {s}, P = {p}, H = {h}.")
+            cursor.close()
             cnx.close()
 
     def calc_sph(self, conc: float, data: dict) -> (int, int, int):
