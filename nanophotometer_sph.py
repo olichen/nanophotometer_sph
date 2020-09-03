@@ -21,10 +21,13 @@ class NanophotometerNamespace(socketio.ClientNamespace):
     def on_disconnect(self) -> None:
         print('disconnected')
 
-    # Tries to update the database if it receives the message 'ready': 'sample'
+    # When a message is received
     def on_message(self, data: dict):
+        # If message contains {'ready': 'sample'}
         if 'ready' in data and data['ready'] == 'sample':
+            # GET request to the nanophotometer
             response = requests.get(self.uri + '/rest/session/sample')
+            # Try to update the database
             sql.update_database(response.text)
 
 
@@ -37,15 +40,17 @@ class MySQLConnection:
                                             host=host, database=db)
         self._cnx.close()
 
+    # Try to update the database
     def update_database(self, response: str):
         sample = json.loads(response)
         try:
+            # Split label into two ints: order_number and sample_number
             label = sample['label'].split()
             o_num = int(label[0])
             s_num = int(label[1])
+
             order_info = self._select(o_num, s_num)
             self._update(o_num, s_num, sample, order_info)
-        # Unable to split label into two ints: order_number and sample_number
         except (IndexError, ValueError):
             print(f"Error finding order/sample: {sample['label']}")
         except mysql.connector.Error:
@@ -66,15 +71,16 @@ class MySQLConnection:
         data = cursor.fetchall()
         cursor.close()
         self._cnx.close()
+        # Returns first row found, or raises IndexError if nothing is found
         return data[0]
 
     # Updates the sampletable
     def _update(self, o_num: int, s_num: int, sample: dict, order: dict):
         # round the concentration and make sure it is as least 1
         conc = max(round(sample['c'], 0), 1)
+        s, p, h = CalcSPH.calc_sph(conc, order)
         a260_a280 = round(sample['a260_a280'], 2)
         a260_a230 = round(sample['a260_a230'], 2)
-        s, p, h = CalcSPH.calc_sph(conc, order)
         query = ("UPDATE sampletable "
                  f"SET measuredSampleCntr = '{conc}', "
                  f"S = '{s}', P = '{p}', H = '{h}', "
@@ -84,13 +90,13 @@ class MySQLConnection:
         self._cnx.reconnect()
         cursor = self._cnx.cursor()
         cursor.execute(query)
+        self._cnx.commit()
+        cursor.close()
+        self._cnx.close()
         print(f"Updated order {o_num:7d}, sample {s_num:2d} with "
               f"concentration = {conc:3.0f}, "
               f"S = {s:.1f}, P = {p:.1f}, H = {h:.1f}, "
               f"a260_a280 = {a260_a280:.2f}, a260_a230 = {a260_a230:.2f}. ")
-        self._cnx.commit()
-        cursor.close()
-        self._cnx.close()
 
 
 # Calculates SPH
