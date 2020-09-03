@@ -42,8 +42,8 @@ class MySQLConnection:
         try:
             o_num = int(label[0])
             s_num = int(label[1])
-            order_info = self._get_order_info(o_num, s_num)
-            self._update_sample(o_num, s_num, sample, order_info)
+            order_info = self._select(o_num, s_num)
+            self._update(o_num, s_num, sample, order_info)
         except Exception as e:
             print(e)
         except (IndexError, ValueError):
@@ -51,7 +51,7 @@ class MySQLConnection:
         except mysql.connector.Error:
             print('Error connecting to database')
 
-    def _get_order_info(self, o_num: int, s_num: int) -> dict:
+    def _select(self, o_num: int, s_num: int) -> dict:
         query = ("SELECT ServiceType, DNAType, purification, "
                  "isPurified, isSpecial, SampleSize, "
                  "sampletable.Premixed AS s_pre, ordertable.Premixed AS o_pre "
@@ -67,7 +67,7 @@ class MySQLConnection:
         self._cnx.close()
         return data[0]
 
-    def _update_sample(self, o_num: int, s_num: int, sample: dict, order: dict):
+    def _update(self, o_num: int, s_num: int, sample: dict, order: dict):
         # round the concentration and make sure it is as least 1
         conc = max(round(sample['c'], 0), 1)
         a260_a280 = round(sample['a260_a280'], 2)
@@ -112,25 +112,27 @@ class CalcSPH:
             # Plasmid samples
             if is_plasmid:
                 if is_special:
-                    return CalcSPH._calc_sample_sph(conc, 'plas_spe', data['SampleSize'])
-                return CalcSPH._calc_sample_sph(conc, 'plas_reg', data['SampleSize'])
+                    return CalcSPH._sample(conc, 'p_spe', data['SampleSize'])
+                return CalcSPH._sample(conc, 'p_reg', data['SampleSize'])
 
             # PCR samples
-            is_pcr = (data['DNAType'] == 'PCR' or data['SampleSize'][0:3] == 'PCR')
+            is_pcr = (data['DNAType'] == 'PCR'
+                      or data['SampleSize'][0:3] == 'PCR')
             is_purified = (data['purification'] == 'purified')
             if is_pcr and not is_purified:
                 if is_purified:
-                    return CalcSPH._calc_sample_sph(conc, 'pcr', data['SampleSize'])
+                    return CalcSPH._sample(conc, 'pcr', data['SampleSize'])
                 return (1.2, 1, 3)
 
     @staticmethod
-    def _calc_sample_sph(self, conc: float, service: str, ssize: str) -> (float, float, float):
+    def _sample(self, conc: float, service: str, ssize: str) \
+            -> (float, float, float):
         base_vol = {}
-        if service == 'plas_reg':
+        if service == 'p_reg':
             base_vol = {'3': 110, '4': 115, '56': 125, '78': 140,
                         '910': 140, '1112': 140, '1315': 150, '1620': 155,
                         '2130': 160, '3150': 170, '50': 180}
-        elif service == 'plas_spe':
+        elif service == 'p_spe':
             base_vol = {'3': 130, '4': 135, '56': 145, '78': 155,
                         '910': 155, '1112': 155, '1315': 160, '1620': 165,
                         '2130': 170, '3150': 175, '50': 175}
@@ -159,8 +161,6 @@ if __name__ == '__main__':
     ip = ip or '192.168.1.31'
     uri = 'http://' + ip
     sio = socketio.Client()
-
     sio.register_namespace(NanophotometerNamespace(uri, sql))
     sio.connect(uri + ':8765')
-
     sio.wait()
