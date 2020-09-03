@@ -5,6 +5,7 @@ import mysql.connector
 from getpass import getpass
 
 
+# Namespace for the nanophotometer
 class NanophotometerNamespace(socketio.ClientNamespace):
     def __init__(self, uri, sql) -> None:
         super().__init__()
@@ -20,16 +21,17 @@ class NanophotometerNamespace(socketio.ClientNamespace):
     def on_disconnect(self) -> None:
         print('disconnected')
 
+    # Tries to update the database if it receives the message 'ready': 'sample'
     def on_message(self, data: dict):
-        # print('message received', data)
         if 'ready' in data and data['ready'] == 'sample':
             response = requests.get(self.uri + '/rest/session/sample')
-            # print(response.text)
             sql.update_database(response.text)
 
 
+# Connects to the SQL database and updates the samples
 class MySQLConnection:
     def __init__(self, host: str, user: str, pw: str) -> None:
+        # Initiate connection
         db = 'etonbioscience'
         self._cnx = mysql.connector.connect(user=user, password=pw,
                                             host=host, database=db)
@@ -37,20 +39,19 @@ class MySQLConnection:
 
     def update_database(self, response: str):
         sample = json.loads(response)
-        # print(sample)
-        label = sample['label'].split()
         try:
+            label = sample['label'].split()
             o_num = int(label[0])
             s_num = int(label[1])
             order_info = self._select(o_num, s_num)
             self._update(o_num, s_num, sample, order_info)
-        except Exception as e:
-            print(e)
+        # Unable to split label into two ints: order_number and sample_number
         except (IndexError, ValueError):
             print(f"Error finding order/sample: {sample['label']}")
         except mysql.connector.Error:
             print('Error connecting to database')
 
+    # Queries the database for info needed to calculate SPH
     def _select(self, o_num: int, s_num: int) -> dict:
         query = ("SELECT ServiceType, DNAType, purification, "
                  "isPurified, isSpecial, SampleSize, "
@@ -67,6 +68,7 @@ class MySQLConnection:
         self._cnx.close()
         return data[0]
 
+    # Updates the sampletable
     def _update(self, o_num: int, s_num: int, sample: dict, order: dict):
         # round the concentration and make sure it is as least 1
         conc = max(round(sample['c'], 0), 1)
@@ -91,6 +93,7 @@ class MySQLConnection:
         self._cnx.close()
 
 
+# Calculates SPH
 class CalcSPH:
     @staticmethod
     def calc_sph(conc: float, data: dict) -> (float, float, float):
@@ -144,23 +147,29 @@ class CalcSPH:
         # Strips non-numeric characters
         # ex: 'PCR - 300 bp' => '15', '1.5 kb' => '15'
         sample_size = ''.join(x for x in ssize if x.isdigit())
+
+        # Round S to the nearest .1, and make sure 1 <= S <= 4
         S = round(base_vol[sample_size] / conc, 1)
-        S = min(S, 4.0)
-        S = max(S, 1.0)
+        S = max(min(S, 4), 1)
+
+        # H = 4 - FLOOR(S)
         H = 4 - (S // 1)
         return (S, 1, H)
 
 
 if __name__ == '__main__':
+    # Connect to the database
     host = input('SQL server host > ')
     user = input('username > ')
     pw = getpass('password > ')
     sql = MySQLConnection(host, user, pw)
 
+    # Connect to the Nanophotometer
     ip = input('Nanophotometer ip address > ')
     ip = ip or '192.168.1.31'
     uri = 'http://' + ip
     sio = socketio.Client()
+    # Add the Namespace to the Nanophotometer
     sio.register_namespace(NanophotometerNamespace(uri, sql))
     sio.connect(uri + ':8765')
     sio.wait()
