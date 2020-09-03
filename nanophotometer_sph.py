@@ -65,7 +65,7 @@ class MySQLConnection:
                    f"SET measuredSampleCntr = '{conc}', "
                    "S = '%s', P = '%s', H = '%s' "
                    f"WHERE OrderNumber = '{o_num}' "
-                   "AND SampleID = '{s_num}'")
+                   f"AND SampleID = '{s_num}'")
         try:
             cnx = mysql.connector.connect(user=self.user, password=self.pw,
                                           host=self.host, database=self.db)
@@ -86,6 +86,7 @@ class MySQLConnection:
             cursor.execute(u_query, (s, p, h))
             print(f"Updated order {o_num}, sample {s_num} with "
                   f"concentration = {conc}, S = {s}, P = {p}, H = {h}.")
+            cnx.commit()
             cursor.close()
             cnx.close()
 
