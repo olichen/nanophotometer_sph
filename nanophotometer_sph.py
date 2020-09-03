@@ -32,12 +32,12 @@ class MySQLConnection:
     def __init__(self, host: str, user: str, pw: str) -> None:
         db = 'etonbioscience'
         self._cnx = mysql.connector.connect(user=user, password=pw,
-                                           host=host, database=db)
+                                            host=host, database=db)
         self._cnx.close()
 
     def update_database(self, response: str):
         sample = json.loads(response)
-        print(sample)
+        # print(sample)
         label = sample['label'].split()
         try:
             o_num = int(label[0])
@@ -60,7 +60,7 @@ class MySQLConnection:
                  f"WHERE ordertable.OrderNumber = '{o_num}' "
                  f"AND SampleID = '{s_num}'")
         self._cnx.reconnect()
-        cursor = self._cnx.cursor(dictionary = True)
+        cursor = self._cnx.cursor(dictionary=True)
         cursor.execute(query)
         data = cursor.fetchall()
         cursor.close()
@@ -70,9 +70,9 @@ class MySQLConnection:
     def _update_sample(self, o_num: int, s_num: int, sample: dict, order: dict):
         # round the concentration and make sure it is as least 1
         conc = max(round(sample['c'], 0), 1)
-        a260_a280 = round(sample['a260_a280'],2)
-        a260_a230 = round(sample['a260_a230'],2)
-        s, p, h = self.calc_sph(conc, order)
+        a260_a280 = round(sample['a260_a280'], 2)
+        a260_a230 = round(sample['a260_a230'], 2)
+        s, p, h = CalcSPH.calc_sph(conc, order)
         query = ("UPDATE sampletable "
                  f"SET measuredSampleCntr = '{conc}', "
                  f"S = '{s}', P = '{p}', H = '{h}', "
@@ -82,15 +82,18 @@ class MySQLConnection:
         self._cnx.reconnect()
         cursor = self._cnx.cursor()
         cursor.execute(query)
-        print(f"Updated order {o_num}, sample {s_num} with "
-              f"concentration = {conc:4.0f}, "
+        print(f"Updated order {o_num:7d}, sample {s_num:2d} with "
+              f"concentration = {conc:3.0f}, "
               f"S = {s:.1f}, P = {p:.1f}, H = {h:.1f}, "
               f"a260_a280 = {a260_a280:.2f}, a260_a230 = {a260_a230:.2f}. ")
         self._cnx.commit()
         cursor.close()
         self._cnx.close()
 
-    def calc_sph(self, conc: float, data: dict) -> (float, float, float):
+
+class CalcSPH:
+    @staticmethod
+    def calc_sph(conc: float, data: dict) -> (float, float, float):
         if data['ServiceType'] == 'SeqDSC':
             return (1.5, 1, 3)
         if data['ServiceType'] == 'SeqReady2Load':
@@ -109,18 +112,19 @@ class MySQLConnection:
             # Plasmid samples
             if is_plasmid:
                 if is_special:
-                    return self.calc_sph_service(conc, 'plas_spe', data['SampleSize'])
-                return self.calc_sph_service(conc, 'plas_reg', data['SampleSize'])
+                    return CalcSPH._calc_sample_sph(conc, 'plas_spe', data['SampleSize'])
+                return CalcSPH._calc_sample_sph(conc, 'plas_reg', data['SampleSize'])
 
             # PCR samples
             is_pcr = (data['DNAType'] == 'PCR' or data['SampleSize'][0:3] == 'PCR')
             is_purified = (data['purification'] == 'purified')
             if is_pcr and not is_purified:
                 if is_purified:
-                    return self.calc_sph_service(conc, 'pcr', data['SampleSize'])
+                    return CalcSPH._calc_sample_sph(conc, 'pcr', data['SampleSize'])
                 return (1.2, 1, 3)
 
-    def calc_sph_service(self, conc: float, service: str, ssize: str) -> (float, float, float):
+    @staticmethod
+    def _calc_sample_sph(self, conc: float, service: str, ssize: str) -> (float, float, float):
         base_vol = {}
         if service == 'plas_reg':
             base_vol = {'3': 110, '4': 115, '56': 125, '78': 140,
