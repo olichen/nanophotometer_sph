@@ -1,6 +1,9 @@
 build:
 	pyinstaller --onefile --name nanophotometer_sph nanophotometer_sph.py
 
+clean:
+	rm -rf build/ dist/ __pycache__/ *.spec
+
 lint:
 	flake8
 
