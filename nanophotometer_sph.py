@@ -31,7 +31,7 @@ class NanophotometerNamespace(socketio.ClientNamespace):
             self._sql.update_database(response.text)
 
 
-# Connects to the SQL database and updates the samples
+# Connects to and queries the SQL database
 class MySQLConnection:
     def __init__(self, host: str, user: str, pw: str) -> None:
         # Initiate and close the connection
@@ -40,22 +40,23 @@ class MySQLConnection:
                                             host=host, database=db)
         self._cnx.close()
 
-    # Try to update the database
+    # Parses the response from the nanophotometer, queries the database for
+    # information needed to calculate SPH, then updates the database.
     def update_database(self, response: str):
-        sample = json.loads(response)
+        s_data = json.loads(response)
         try:
             # Split label into two ints: order_number and sample_number
             # Raises IndexError or ValueError unable to split into ints
-            label = sample['label'].split()
+            label = s_data['label'].split()
             o_num = int(label[0])
             s_num = int(label[1])
 
             # Get data needed to calculate SPH
-            order_info = self._select(o_num, s_num)
+            o_data = self._select(o_num, s_num)
             # Insert concentration and SPH into the database
-            self._update(o_num, s_num, sample, order_info)
+            self._update(o_num, s_num, s_data, o_data)
         except (IndexError, ValueError):
-            print(f"Error finding order/sample: {sample['label']}")
+            print(f"Error finding order/sample: {s_data['label']}")
         except mysql.connector.Error:
             print('Error connecting to database')
 
@@ -78,7 +79,8 @@ class MySQLConnection:
         return data[0]
 
     # Updates the sampletable
-    def _update(self, o_num: int, s_num: int, s_data: dict, o_data: dict) -> None:
+    def _update(self, o_num: int, s_num: int, s_data: dict, o_data: dict) \
+            -> None:
         # Round the concentration and make sure it is as least 1
         conc = max(round(s_data['c'], 0), 1)
         s, p, h = CalcSPH.calc_sph(conc, o_data)
