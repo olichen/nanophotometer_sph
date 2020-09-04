@@ -52,8 +52,23 @@ class MySQLConnection:
 
             # Get data needed to calculate SPH
             o_data = self._select(o_num, s_num)
+
+            print(o_data)
+            # Get concentration, S, P, H, A260/A280, and A260/A230
+            conc = max(round(s_data.get('c', 1), 0), 1)
+            s, p, h = CalcSPH.calc_sph(conc, o_data)
+            a260_a280 = round(s_data.get('a260_a280', 0), 2)
+            a260_a230 = round(s_data.get('a260_a230', 0), 2)
+
             # Insert concentration and SPH into the database
-            self._update(o_num, s_num, s_data, o_data)
+            self._update(conc=conc, s=s, p=p, h=h,
+                          a260_a280=a260_a280, a260_a230=a260_a230,
+                          o_num = o_num, s_num=s_num)
+            # Success message
+            print(f"Updated order {o_num:7d}, sample {s_num:2d} with "
+                  f"concentration = {conc:3.0f}, "
+                  f"S = {s:.1f}, P = {p:.1f}, H = {h:.1f}, "
+                  f"a260_a280 = {a260_a280:.2f}, a260_a230 = {a260_a230:.2f}")
         except (IndexError, ValueError):
             print(f"Error finding order/sample: {s_data['label']}")
         except mysql.connector.Error:
@@ -78,29 +93,21 @@ class MySQLConnection:
         return data[0]
 
     # Updates the sampletable
-    def _update(self, o_num: int, s_num: int, s_data: dict, o_data: dict) \
-            -> None:
-        # Round the concentration and make sure it is as least 1
-        conc = max(round(s_data['c'], 0), 1)
-        s, p, h = CalcSPH.calc_sph(conc, o_data)
-        a260_a280 = round(s_data['a260_a280'], 2)
-        a260_a230 = round(s_data['a260_a230'], 2)
+    def _update(self, **kwargs) -> None:
+        conc, s, p, h = kwargs['conc'], kwargs['s'], kwargs['p'], kwargs['h']
+        a260_a280, a260_a230 = kwargs['a260_a280'], kwargs['a260_a230']
+        o_num, s_num = kwargs['o_num'], kwargs['s_num']
         query = ("UPDATE sampletable "
                  f"SET measuredSampleCntr = '{conc}', "
                  f"S = '{s}', P = '{p}', H = '{h}', "
                  f"a260_a280 = '{a260_a280}', a260_a230 = '{a260_a230}' "
                  f"WHERE OrderNumber = '{o_num}' AND SampleID = '{s_num}'")
-
         self._cnx.reconnect()
         cursor = self._cnx.cursor()
         cursor.execute(query)
         self._cnx.commit()
         cursor.close()
         self._cnx.close()
-        print(f"Updated order {o_num:7d}, sample {s_num:2d} with "
-              f"concentration = {conc:3.0f}, "
-              f"S = {s:.1f}, P = {p:.1f}, H = {h:.1f}, "
-              f"a260_a280 = {a260_a280:.2f}, a260_a230 = {a260_a230:.2f}. ")
 
 
 # Calculates SPH. 'data' is the order data returned by the SELECT statement in
@@ -168,6 +175,8 @@ class CalcSPH:
         return (S, 1, H)
 
 
+# Initiates a socketio connection to the nanophotometer. An SQL connection
+# object is passed to the namespace when it is created.
 if __name__ == '__main__':
     # Connect to the database
     host = input('SQL server host > ')
