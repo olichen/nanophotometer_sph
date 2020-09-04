@@ -22,7 +22,7 @@ class NanophotometerNamespace(socketio.ClientNamespace):
         print('Disconnected from nanophotometer')
 
     # When a message is received
-    def on_message(self, data: dict):
+    def on_message(self, data: dict) -> None:
         # If message contains {'ready': 'sample'}
         if 'ready' in data and data['ready'] == 'sample':
             # GET request to the nanophotometer
@@ -33,16 +33,15 @@ class NanophotometerNamespace(socketio.ClientNamespace):
 
 # Connects to and queries the SQL database
 class MySQLConnection:
-    def __init__(self, host: str, user: str, pw: str) -> None:
+    def __init__(self, host: str, user: str, pw: str, db: str) -> None:
         # Initiate and close the connection
-        db = 'etonbioscience'
         self._cnx = mysql.connector.connect(user=user, password=pw,
                                             host=host, database=db)
         self._cnx.close()
 
     # Parses the response from the nanophotometer, queries the database for
     # information needed to calculate SPH, then updates the database.
-    def update_database(self, response: str):
+    def update_database(self, response: str) -> None:
         s_data = json.loads(response)
         try:
             # Split label into two ints: order_number and sample_number
@@ -174,7 +173,8 @@ if __name__ == '__main__':
     host = input('SQL server host > ')
     user = input('username > ')
     pw = getpass('password > ')
-    sql = MySQLConnection(host, user, pw)
+    db = 'etonbioscience'
+    sql = MySQLConnection(host, user, pw, db)
 
     # Connect to the Nanophotometer and wait
     ip = input('Nanophotometer ip address > ')
