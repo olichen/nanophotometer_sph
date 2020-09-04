@@ -7,7 +7,7 @@ from getpass import getpass
 
 # Namespace for the nanophotometer
 class NanophotometerNamespace(socketio.ClientNamespace):
-    def __init__(self, uri, sql) -> None:
+    def __init__(self, uri: str, sql) -> None:
         super().__init__()
         self._uri = uri
         self._sql = sql
