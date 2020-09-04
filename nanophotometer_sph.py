@@ -9,32 +9,32 @@ from getpass import getpass
 class NanophotometerNamespace(socketio.ClientNamespace):
     def __init__(self, uri, sql) -> None:
         super().__init__()
-        self.uri = uri
-        self.sql = sql
+        self._uri = uri
+        self._sql = sql
 
     def on_connect(self) -> None:
-        print('connected')
+        print(f'Connected to nanophotometer on {self._uri}')
 
     def on_connection_error(self) -> None:
-        print('connection error')
+        print('Error connecting to nanophotometer')
 
     def on_disconnect(self) -> None:
-        print('disconnected')
+        print('Disconnected from nanophotometer')
 
     # When a message is received
     def on_message(self, data: dict):
         # If message contains {'ready': 'sample'}
         if 'ready' in data and data['ready'] == 'sample':
             # GET request to the nanophotometer
-            response = requests.get(self.uri + '/rest/session/sample')
+            response = requests.get(self._uri + '/rest/session/sample')
             # Try to update the database
-            sql.update_database(response.text)
+            self._sql.update_database(response.text)
 
 
 # Connects to the SQL database and updates the samples
 class MySQLConnection:
     def __init__(self, host: str, user: str, pw: str) -> None:
-        # Initiate connection
+        # Initiate and close the connection
         db = 'etonbioscience'
         self._cnx = mysql.connector.connect(user=user, password=pw,
                                             host=host, database=db)
@@ -45,11 +45,14 @@ class MySQLConnection:
         sample = json.loads(response)
         try:
             # Split label into two ints: order_number and sample_number
+            # Raises IndexError or ValueError unable to split into ints
             label = sample['label'].split()
             o_num = int(label[0])
             s_num = int(label[1])
 
+            # Get data needed to calculate SPH
             order_info = self._select(o_num, s_num)
+            # Insert concentration and SPH into the database
             self._update(o_num, s_num, sample, order_info)
         except (IndexError, ValueError):
             print(f"Error finding order/sample: {sample['label']}")
@@ -75,12 +78,12 @@ class MySQLConnection:
         return data[0]
 
     # Updates the sampletable
-    def _update(self, o_num: int, s_num: int, sample: dict, order: dict):
-        # round the concentration and make sure it is as least 1
-        conc = max(round(sample['c'], 0), 1)
-        s, p, h = CalcSPH.calc_sph(conc, order)
-        a260_a280 = round(sample['a260_a280'], 2)
-        a260_a230 = round(sample['a260_a230'], 2)
+    def _update(self, o_num: int, s_num: int, s_data: dict, o_data: dict) -> None:
+        # Round the concentration and make sure it is as least 1
+        conc = max(round(s_data['c'], 0), 1)
+        s, p, h = CalcSPH.calc_sph(conc, o_data)
+        a260_a280 = round(s_data['a260_a280'], 2)
+        a260_a230 = round(s_data['a260_a230'], 2)
         query = ("UPDATE sampletable "
                  f"SET measuredSampleCntr = '{conc}', "
                  f"S = '{s}', P = '{p}', H = '{h}', "
@@ -99,7 +102,8 @@ class MySQLConnection:
               f"a260_a280 = {a260_a280:.2f}, a260_a230 = {a260_a230:.2f}. ")
 
 
-# Calculates SPH
+# Calculates SPH. 'data' is the order data returned by the SELECT statement in
+# MySqlConnection._select
 class CalcSPH:
     @staticmethod
     def calc_sph(conc: float, data: dict) -> (float, float, float):
@@ -151,14 +155,14 @@ class CalcSPH:
                         '5': 35, '6': 50}
 
         # Strips non-numeric characters
-        # ex: 'PCR - 300 bp' => '15', '1.5 kb' => '15'
+        # ex: 'PCR - 300 bp' => '300', '1.5 kb' => '15'
         sample_size = ''.join(x for x in ssize if x.isdigit())
 
         # Round S to the nearest .1, and make sure 1 <= S <= 4
         S = round(base_vol[sample_size] / conc, 1)
         S = max(min(S, 4), 1)
 
-        # H = 4 - FLOOR(S)
+        # H set to 4 - FLOOR(S)
         H = 4 - (S // 1)
         return (S, 1, H)
 
@@ -170,12 +174,11 @@ if __name__ == '__main__':
     pw = getpass('password > ')
     sql = MySQLConnection(host, user, pw)
 
-    # Connect to the Nanophotometer
+    # Connect to the Nanophotometer and wait
     ip = input('Nanophotometer ip address > ')
     ip = ip or '192.168.1.31'
     uri = 'http://' + ip
     sio = socketio.Client()
-    # Add the Namespace to the Nanophotometer
     sio.register_namespace(NanophotometerNamespace(uri, sql))
     sio.connect(uri + ':8765')
     sio.wait()
