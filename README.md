@@ -73,82 +73,13 @@ $ pyinstaller --onefile --name nanophotometer_sph nanophotometer_sph.py
 
 ### Code
 
-All the code is contained in one file: `nanophotometer_sph.py`. The code is broken into three classes: `NanophotometerNamespace`, `MySQLConnection`, and `CalcSPH`.
+All the code is contained in one file: `nanophotometer_sph.py`. The code is broken into three classes: `NanophotometerNamespace`, `MySQLConnection`, and `CalcSPH`, and is initiated from the `main()` block. For further information, see the [source code](/nanophotometer_sph.py) or use the help() function from the python console.
 
 ```python
-class NanophotometerNamespace(socketio.namespace.ClientNamespace)
-     |  NanophotometerNamespace(uri: str, sql) -> None
-     |
-     |  A client-side class-based namespace for the socketio client.
-     |
-     |  Creates the event handlers for the connection to the nanophotometer.
-     |
-     |  __init__(self, uri: str, sql) -> None
-     |      NanophotometerNamespace object constructor.
-     |
-     |      :param uri: URI of the nanophotometer.
-     |      :param sql: MySQLConnection object that connects to the database.
-     |
-     |  on_connect(self) -> None
-     |      Prints a message on connection to the nanophotometer.
-     |
-     |  on_connection_error(self) -> None
-     |      Prints a message on error connecting to the nanophotometer.
-     |
-     |  on_disconnect(self) -> None
-     |      Prints a message on disconnect from the nanophotometer.
-     |
-     |  on_message(self, data: dict) -> None
-     |      Triggered when a message is received from the nanophotometer.
-     |
-     |      If the message indicates that a sample is ready, retrieves the sample
-     |      data with a GET request to the nanophotometer. The text from the
-     |      response is sent to the MySQLConnection object to update the database.
-     |
-     |      :param data: Message received from the nanophotometer.
-
-class MySQLConnection(builtins.object)
-     |  MySQLConnection(host: str, user: str, pw: str, db: str) -> None
-     |
-     |  Connects to and queries the SQL database.
-     |
-     |  __init__(self, host: str, user: str, pw: str, db: str) -> None
-     |      MySQLConnection object constructor. Opens a connection to the MySQL
-     |      server.
-     |
-     |      :param host: Host name or IP address of the MySQL Server.
-     |      :param user: The user name used to authenticate with the server.
-     |      :param pw: The password used to authenticate the user with the server.
-     |      :param db: The database name to use when connecting to the server.
-     |
-     |  select_order_data(self, o_num: int, s_num: int) -> dict
-     |      Queries ordertable/sampletable for information needed to calculate SPH.
-     |
-     |      :param o_num: Order number.
-     |      :param s_num: Sample ID.
-     |
-     |  update_database(self, response: str) -> None
-     |      Parses the sample data received from the nanophotometer for the order
-     |      number and sample id to update, queries the database for information
-     |      needed to calculate SPH, calculates SPH, then updates the database.
-     |
-     |      :param response: The sample data received from the nanophotometer.
-     |
-     |  update_sampletable(self, o_num: int, s_num: int, **kwargs) -> None
-     |      Updates the sampletable with the values provided.
-     |
-     |      :param o_num: Order number of the sample to be updated.
-     |      :param s_num: Sample ID of the sample to be updated.
-     |      :param **kwargs: Columns of the database to be updated.
-
-class CalcSPH(builtins.object)
-     |  Calculates and returns SPH values.
-     |
-     |  calc_sph(conc: float, data: dict) -> (<class 'float'>, <class 'float'>, <class 'float'>)
-     |      Calculates and returns SPH.
-     |
-     |      :param conc: Measured concentration of the sample.
-     |      :param data: Order data received from select_order_data().
+>>> import os
+>>> os.chdir('/nanophotometer_sph')
+>>> import nanophotometer_sph
+>>> help(nanophotometer_sph)
 ```
 
 #### Workflow
