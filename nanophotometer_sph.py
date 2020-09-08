@@ -68,22 +68,22 @@ class MySQLConnection:
 
     def update_database(self, response: str) -> None:
         '''
-        Parses the response from the nanophotometer for the order number and
-        sample id to update, queries the database for information needed to
-        calculate SPH, calculates SPH, then updates the database.
+        Parses the sample data received from the nanophotometer for the order
+        number and sample id to update, queries the database for information
+        needed to calculate SPH, calculates SPH, then updates the database.
 
-        :param response: The text response received from the nanophotometer.
+        :param response: The sample data received from the nanophotometer.
         '''
         s_data = json.loads(response)
         try:
-            # Split label into two ints: order_number and sample_number
-            # Raises IndexError or ValueError unable to split into ints
+            # Try to parse order number and sample id from the sample data
+            # Raises IndexError or ValueError if unable to parse
             label = s_data['label'].split()
             o_num = int(label[0])
             s_num = int(label[1])
 
             # Get data needed to calculate SPH
-            o_data = self.get_order_data(o_num, s_num)
+            o_data = self.select_order_data(o_num, s_num)
 
             # Get concentration, S, P, H, A260/A280, and A260/A230
             conc = max(round(s_data.get('c', 1), 0), 1)
@@ -92,8 +92,9 @@ class MySQLConnection:
             a260_a230 = round(s_data.get('a260_a230', 0), 2)
 
             # Insert concentration and SPH into the database
-            self._update(conc=conc, s=s, p=p, h=h, o_num=o_num, s_num=s_num,
-                         a260_a280=a260_a280, a260_a230=a260_a230)
+            self.update_sampletable(o_num=o_num, s_num=s_num,
+                                    measuredSampleCntr=conc, S=s, P=p, H=h,
+                                    a260_a280=a260_a280, a260_a230=a260_a230)
             print(f"Updated order {o_num:7d}, sample {s_num:2d} with "
                   f"concentration = {conc:3.0f}, "
                   f"S = {s:.1f}, P = {p:.1f}, H = {h:.1f}, "
@@ -103,10 +104,9 @@ class MySQLConnection:
         except mysql.connector.Error:
             print('Error connecting to database')
 
-    def get_order_data(self, o_num: int, s_num: int) -> dict:
+    def select_order_data(self, o_num: int, s_num: int) -> dict:
         '''
-        Queries ordertable and sampletable for information needed to calculate
-        SPH.
+        Queries ordertable/sampletable for information needed to calculate SPH.
 
         :param o_num: Order number.
         :param s_num: Sample ID.
@@ -127,15 +127,18 @@ class MySQLConnection:
         # Returns first row found, or raises IndexError if nothing is found
         return data[0]
 
-    def _update(self, **kwargs) -> None:
-        '''Updates the sampletable with the given values.'''
-        conc, s, p, h = kwargs['conc'], kwargs['s'], kwargs['p'], kwargs['h']
-        o_num, s_num = kwargs['o_num'], kwargs['s_num']
-        a260_a280, a260_a230 = kwargs['a260_a280'], kwargs['a260_a230']
-        query = ("UPDATE sampletable "
-                 f"SET measuredSampleCntr = '{conc}', "
-                 f"S = '{s}', P = '{p}', H = '{h}', "
-                 f"a260_a280 = '{a260_a280}', a260_a230 = '{a260_a230}' "
+    def update_sampletable(self, o_num: int, s_num: int, **kwargs) -> None:
+        '''
+        Updates the sampletable with the values provided.
+
+        :param o_num: Order number of the sample to be updated.
+        :param s_num: Sample ID of the sample to be updated.
+        :param **kwargs: Columns of the database to be updated.
+        '''
+        cols_to_update = []
+        for key, value in kwargs.items():
+            cols_to_update.append(f"{key} = '{value}'")
+        query = ("UPDATE sampletable SET " + ", ".join(cols_to_update) + " "
                  f"WHERE OrderNumber = '{o_num}' AND SampleID = '{s_num}'")
         self._cnx.reconnect()
         cursor = self._cnx.cursor()
@@ -146,14 +149,14 @@ class MySQLConnection:
 
 
 class CalcSPH:
-    '''Calculates SPH values.'''
+    '''Calculates and returns SPH values.'''
     @staticmethod
     def calc_sph(conc: float, data: dict) -> (float, float, float):
         '''
         Calculates and returns SPH.
 
         :param conc: Measured concentration of the sample.
-        :param data: Order data received from MySQLConnection.get_order_data().
+        :param data: Order data received from select_order_data().
         '''
         if data['ServiceType'] == 'SeqDSC':
             return (1.5, 1, 3)
@@ -220,10 +223,11 @@ class CalcSPH:
         H = 4 - (S // 1)
         return (S, 1, H)
 
-
-# Initiates a socketio connection to the nanophotometer. An SQL connection
-# object is passed to the namespace when it is created.
-if __name__ == '__main__':
+def main():
+    '''
+    Initiates a socketio connection to the nanophotometer. An SQL connection
+    object is passed to the namespace when it is created.
+    '''
     # Connect to the database
     host = input('SQL server host > ')
     user = input('username > ')
@@ -239,3 +243,6 @@ if __name__ == '__main__':
     sio.register_namespace(NanophotometerNamespace(uri, sql))
     sio.connect(uri + ':8765')
     sio.wait()
+
+if __name__ == '__main__':
+    main()
