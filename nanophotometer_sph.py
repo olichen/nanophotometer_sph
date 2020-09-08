@@ -53,7 +53,6 @@ class MySQLConnection:
             # Get data needed to calculate SPH
             o_data = self._select(o_num, s_num)
 
-            print(o_data)
             # Get concentration, S, P, H, A260/A280, and A260/A230
             conc = max(round(s_data.get('c', 1), 0), 1)
             s, p, h = CalcSPH.calc_sph(conc, o_data)
@@ -146,8 +145,7 @@ class CalcSPH:
                 return (1.2, 1, 3)
 
     @staticmethod
-    def _sample(self, conc: float, service: str, ssize: str) \
-            -> (float, float, float):
+    def _sample(conc: float, service: str, size: str) -> (float, float, float):
         base_vol = {}
         if service == 'p_reg':
             base_vol = {'3': 110, '4': 115, '56': 125, '78': 140,
@@ -164,7 +162,7 @@ class CalcSPH:
 
         # Strips non-numeric characters
         # ex: 'PCR - 300 bp' => '300', '1.5 kb' => '15'
-        sample_size = ''.join(x for x in ssize if x.isdigit())
+        sample_size = ''.join(x for x in size if x.isdigit())
 
         # Round S to the nearest .1, and make sure 1 <= S <= 4
         S = round(base_vol[sample_size] / conc, 1)
