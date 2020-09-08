@@ -60,9 +60,8 @@ class MySQLConnection:
             a260_a230 = round(s_data.get('a260_a230', 0), 2)
 
             # Insert concentration and SPH into the database
-            self._update(conc=conc, s=s, p=p, h=h,
-                          a260_a280=a260_a280, a260_a230=a260_a230,
-                          o_num = o_num, s_num=s_num)
+            self._update(conc=conc, s=s, p=p, h=h, o_num=o_num, s_num=s_num
+                         a260_a280=a260_a280, a260_a230=a260_a230)
             # Success message
             print(f"Updated order {o_num:7d}, sample {s_num:2d} with "
                   f"concentration = {conc:3.0f}, "
@@ -94,8 +93,8 @@ class MySQLConnection:
     # Updates the sampletable
     def _update(self, **kwargs) -> None:
         conc, s, p, h = kwargs['conc'], kwargs['s'], kwargs['p'], kwargs['h']
-        a260_a280, a260_a230 = kwargs['a260_a280'], kwargs['a260_a230']
         o_num, s_num = kwargs['o_num'], kwargs['s_num']
+        a260_a280, a260_a230 = kwargs['a260_a280'], kwargs['a260_a230']
         query = ("UPDATE sampletable "
                  f"SET measuredSampleCntr = '{conc}', "
                  f"S = '{s}', P = '{p}', H = '{h}', "
