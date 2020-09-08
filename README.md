@@ -83,10 +83,10 @@ All the code is contained in one file: `nanophotometer_sph.py`. The code is brok
 
 #### Workflow
 
-* `__main__`: Initiates a socketio connection to the Nanophotometer and a `MySQLConnection` to the database. The `MySQLConnection` is passed to a `NanophotometerNamespace`, which is registered to the socketio connection.
-* `NanophotometerNamespace`: When a message is received, `NanophotometerNamespace.on_message()` checks if the message indicates that a sample is ready. If a sample is ready, `NanophotometerNamespace.on_message()` retrieves the sample data with a GET request to the nanophotometer. The text from the response is sent to `MySQLConnection.update_database()`.
-* `MySQLConnection.update_database()`: Parses the response from the Nanophotometer, queries the database for information needed to calculate SPH, then updates the database.
-  * Loads the received data into a JSON object and tries to parse the sample name for the order number and sample id.
+* `__main__`: Initiates a `MySQLConnection` to the database. The database connection and nanophotometer URI are passed to a `NanophotometerNamespace`, a socketio event handler. The event handler is registered to a socketio client, which connects to the nanophotometer on the URI provided.
+* `NanophotometerNamespace`: When a message is received, the data is sent to `NanophotometerNamespace.on_message()`. If the message indicates that a sample is ready, we retrieve the sample data with a GET request to the nanophotometer. The text from the response is sent to `MySQLConnection.update_database()`.
+* `MySQLConnection.update_database()`: Parses the sample data received, queries the database for information needed to calculate SPH, calculates SPH, then updates the database.
+  * First, it loads the received data into a JSON object and tries to parse the sample name for the order number and sample id.
   * If we are able to parse the order number and sample id, we pass the values to `MySQLConnection._select()` to retrieve the order information necessary to calculate SPH.
   * The data retrieved is passed to `CalcSPH.calc_sph` to calculate the SPH.
   * Concentration, SPH, and other values to be updated are passed to `MySQLConnection._update()` to update the database.
