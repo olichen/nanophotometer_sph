@@ -24,7 +24,7 @@
 
 #### Bash
 
-Clone the respository and go into the created folder:
+Clone the respository and go into the new folder:
 
 ```shell
 $ git clone https://github.com/olichen/nanophotometer_sph.git
@@ -56,7 +56,7 @@ $ pipenv install --dev
 $ pyinstaller --onefile --name nanophotometer_sph nanophotometer_sph.py
 ```
 
-Windows users may need to install `pywin32-ctypes` and `pefile`.
+Windows users may need to install `pywin32-ctypes` and `pefile` to compile the project.
 
 ```shell
 $ git clone https://github.com/olichen/nanophotometer_sph.git
@@ -69,7 +69,7 @@ $ pyinstaller --onefile --name nanophotometer_sph nanophotometer_sph.py
 
 #### Debugging
 
-`ImportError: DLL load failed while importing X`: Make sure that the operating system is fully updated. Python tries to hook into some system-specific libraries.
+`ImportError: DLL load failed while importing X`: Make sure that the operating system is fully updated. `pyinstaller` tries to hook into some system-specific libraries.
 
 ### Code
 
@@ -83,11 +83,10 @@ All the code is contained in one file: `nanophotometer_sph.py`. The code is brok
 
 #### Workflow
 
-`__main__`: Initiates a socketio connection to the Nanophotometer. A `NanophotometerNamespace` with an attached `MySQLConnection` is registered to the connection.
-
-Message is received:
-
-1. `NanophotometerNamespace.on_message()` checks if the data received indicates that a sample is ready.
-2. If a sample is ready, we retrieve the sample data with a GET request to the nanophotometer.
-3. The text from the response is sent to `MySQLConnection.update_database()`, which loads the received data into a JSON object and tries to parse the sample name for the order number and sample id.
-4. If we are able parse , we try to retrieve the order information in `MySQLConnection._select()`.
+* `__main__`: Initiates a socketio connection to the Nanophotometer and a `MySQLConnection` to the database. The `MySQLConnection` is passed to a `NanophotometerNamespace`, which is registered to the socketio connection.
+* `NanophotometerNamespace`: When a message is received, `NanophotometerNamespace.on_message()` checks if the message indicates that a sample is ready. If a sample is ready, `NanophotometerNamespace.on_message()` retrieves the sample data with a GET request to the nanophotometer. The text from the response is sent to `MySQLConnection.update_database()`.
+* `MySQLConnection.update_database()`: Parses the response from the Nanophotometer, queries the database for information needed to calculate SPH, then updates the database.
+  * Loads the received data into a JSON object and tries to parse the sample name for the order number and sample id.
+  * If we are able to parse the order number and sample id, we pass the values to `MySQLConnection._select()` to retrieve the order information necessary to calculate SPH.
+  * The data retrieved is passed to `CalcSPH.calc_sph` to calculate the SPH.
+  * Concentration, SPH, and other values to be updated are passed to `MySQLConnection._update()` to update the database.
