@@ -6,8 +6,8 @@
 
 ## Usage
 
-1. Update the database connection so it automatically logs in
-2. Type in the IP address of the Nanophotometer to connect to
+1. Connect to the database and nanophotometer.
+2. Scan barcode, then measure the sample.
 
 ---
 
@@ -81,13 +81,3 @@ All the code is contained in one file: `nanophotometer_sph.py`. The code is brok
 >>> import nanophotometer_sph
 >>> help(nanophotometer_sph)
 ```
-
-#### Workflow
-
-* `__main__`: Initiates a `MySQLConnection` to the database. The database connection and nanophotometer URI are passed to a `NanophotometerNamespace`, a socketio event handler. The event handler is registered to a socketio client, which connects to the nanophotometer on the URI provided.
-* `NanophotometerNamespace`: When a message is received, the data is sent to `NanophotometerNamespace.on_message()`. If the message indicates that a sample is ready, we retrieve the sample data with a GET request to the nanophotometer. The text from the response is sent to `MySQLConnection.update_database()`.
-* `MySQLConnection.update_database()`: Parses the sample data received, queries the database for information needed to calculate SPH, calculates SPH, then updates the database.
-  * First, it loads the received data into a JSON object and tries to parse the sample name for the order number and sample id.
-  * If we are able to parse the order number and sample id, we pass the values to `MySQLConnection._select()` to retrieve the order information necessary to calculate SPH.
-  * The data retrieved is passed to `CalcSPH.calc_sph` to calculate the SPH.
-  * Concentration, SPH, and other values to be updated are passed to `MySQLConnection._update()` to update the database.
