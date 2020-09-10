@@ -1,6 +1,6 @@
 # Nanophotometer SPH
 
-> Initiates a socket.io connection to an Implen Nanophotometer, parses sample data, and updates the Eton database
+> Initiates a socket.io connection to an Implen Nanophotometer, parses sample data, calculates SPH, and updates the Eton database
 
 ---
 
@@ -19,8 +19,8 @@
 
 1. Install [Python](https://www.python.org/). During Python setup, make sure that you add Python to your PATH.
 2. Install a [git client](https://git-scm.com/).
-3. Open up Git Bash in the folder you'd like to install the program.
-4. Go to "Bash" section below.
+3. Open Git Bash (rightclick > Git Bash Here) in the folder you'd like to install the program.
+4. Go to [Bash](#bash) section below.
 
 #### Bash
 
@@ -31,7 +31,7 @@ $ git clone https://github.com/olichen/nanophotometer_sph.git
 $ cd /nanophotometer_sph
 ```
 
-Use Python's package manager to set up a virtual environment with all the required packages. Pipenv is for package management.
+Use Python's package manager to set up a virtual environment with all the required packages.
 
 ```shell
 $ pip install pipenv
@@ -46,24 +46,14 @@ $ python nanophotometer_sph.py
 
 ### Distribution
 
-The program can be compiled into a portable executable with pyinstaller. Make sure that you are compiling on the same OS as the target system.
+The program can be compiled into a portable executable with pyinstaller. Make sure that you are compiling on the same OS as the target system. Windows users need to install `pywin32-ctypes` and `pefile` to compile the project.
 
 ```shell
 $ git clone https://github.com/olichen/nanophotometer_sph.git
 $ cd /nanophotometer_sph
 $ pip install pipenv
 $ pipenv install --dev
-$ pyinstaller --onefile --name nanophotometer_sph nanophotometer_sph.py
-```
-
-Windows users may need to install `pywin32-ctypes` and `pefile` to compile the project.
-
-```shell
-$ git clone https://github.com/olichen/nanophotometer_sph.git
-$ cd /nanophotometer_sph
-$ pip install pipenv
-$ pipenv install --dev
-$ pip install pywin32-ctypes pefile
+$ pip install pywin32-ctypes pefile # Windows installation
 $ pyinstaller --onefile --name nanophotometer_sph nanophotometer_sph.py
 ```
 
@@ -77,7 +67,7 @@ All the code is contained in one file: `nanophotometer_sph.py`. The code is brok
 
 ```python
 >>> import os
->>> os.chdir('/nanophotometer_sph')
+>>> os.chdir('/path/to/nanophotometer_sph')
 >>> import nanophotometer_sph
 >>> help(nanophotometer_sph)
 ```
