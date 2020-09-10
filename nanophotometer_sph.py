@@ -62,9 +62,13 @@ class MySQLConnection:
         :param pw: The password used to authenticate the user with the server.
         :param db: The database name to use when connecting to the server.
         '''
-        self._cnx = mysql.connector.connect(user=user, password=pw,
-                                            host=host, database=db)
-        self._cnx.close()
+        self.user = user
+        self.pw = pw
+        self.host = host
+        self.db = db
+        cnx = mysql.connector.connect(user=self.user, password=self.pw,
+                                      host=self.host, database=self.db)
+        cnx.close()
 
     def update_database(self, response: str) -> None:
         '''
@@ -118,12 +122,13 @@ class MySQLConnection:
                  "ON ordertable.OrderNumber = sampletable.OrderNumber "
                  f"WHERE ordertable.OrderNumber = '{o_num}' "
                  f"AND SampleID = '{s_num}'")
-        self._cnx.reconnect()
-        cursor = self._cnx.cursor(dictionary=True)
+        cnx = mysql.connector.connect(user=self.user, password=self.pw,
+                                      host=self.host, database=self.db)
+        cursor = cnx.cursor(dictionary=True)
         cursor.execute(query)
         data = cursor.fetchall()
         cursor.close()
-        self._cnx.close()
+        cnx.close()
         # Returns first row found, or raises IndexError if nothing is found
         return data[0]
 
@@ -140,12 +145,13 @@ class MySQLConnection:
             cols_to_update.append(f"{key} = '{value}'")
         query = ("UPDATE sampletable SET " + ", ".join(cols_to_update) + " "
                  f"WHERE OrderNumber = '{o_num}' AND SampleID = '{s_num}'")
-        self._cnx.reconnect()
-        cursor = self._cnx.cursor()
+        cnx = mysql.connector.connect(user=self.user, password=self.pw,
+                                      host=self.host, database=self.db)
+        cursor = cnx.cursor()
         cursor.execute(query)
-        self._cnx.commit()
+        cnx.commit()
         cursor.close()
-        self._cnx.close()
+        cnx.close()
 
 
 class CalcSPH:
