@@ -52,10 +52,9 @@ class NanophotometerNamespace(socketio.ClientNamespace):
 class MySQLConnection:
     '''Connects to and queries the SQL database.'''
     def __init__(self, host: str, user: str, pw: str, db: str) -> None:
-        # Initiate and close the connection
         '''
-        MySQLConnection object constructor. Opens a connection to the MySQL
-        server.
+        MySQLConnection object constructor. Stores the connection information
+        and tests the connection to the server.
 
         :param host: Host name or IP address of the MySQL Server.
         :param user: The user name used to authenticate with the server.
